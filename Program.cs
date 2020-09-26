@@ -1,9 +1,11 @@
 ﻿using OpenQA.Selenium;
+using OpenQA.Selenium.DevTools.Network;
 using OpenQA.Selenium.Edge;
 using OpenQA.Selenium.Interactions;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 
@@ -28,14 +30,19 @@ namespace StaticWebEpiServerPlugin.Test
 
                 LoginToCMS(driver);
 
-                SinglePagePublishingTest(driver);
+                TestResult result = null;
+                result = StartGenerateStaticWebScheduledJob(driver);
+                PrintTestResult(result);
 
-                SingleBlockPublishingTest(driver);
+                result = SinglePagePublishingTest(driver);
+                PrintTestResult(result);
+
+                result = SingleBlockPublishingTest(driver);
+                PrintTestResult(result);
 
                 Console.WriteLine("*****************************");
+                Console.ReadKey();
 
-                // show result for 60 seconds
-                Thread.Sleep(60 * 1000);
             }
             catch (Exception ex)
             {
@@ -44,8 +51,31 @@ namespace StaticWebEpiServerPlugin.Test
             driver.Quit();
         }
 
-        private static void SingleBlockPublishingTest(EdgeDriver driver)
+        private static void PrintTestResult(TestResult result)
         {
+            if (result.Success)
+            {
+                Console.Write("[Success]\t");
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write("[FAIL]\t\t");
+            }
+
+            Console.Write(result.Name);
+            if (!string.IsNullOrEmpty(result.Message))
+            {
+                Console.Write(" - ");
+                Console.Write(result.Message);
+            }
+            Console.WriteLine();
+            Console.ResetColor();
+        }
+
+        private static TestResult SingleBlockPublishingTest(EdgeDriver driver)
+        {
+            var result = new TestResult { Name = "Single Block Publishing Test", Success = true };
             string newTitle = "TEST-" + Guid.NewGuid();
             var errorMessage = ChangeAlloyMeetBlockHeading(driver, newTitle, "Sharing worldwide");
             if (string.IsNullOrEmpty(errorMessage))
@@ -58,23 +88,30 @@ namespace StaticWebEpiServerPlugin.Test
                     if (alloyPlanMarkup.IndexOf(newTitle) > 0)
                     {
                         // TEST SUCCESS
-                        Console.WriteLine("Single Block Publishing Test - Alloy Meet Heading - Success");
+                        //Console.WriteLine("Single Block Publishing Test - Alloy Meet Heading - Success");
+                        result.Success = true;
                     }
                     else
                     {
                         // TEST FAILED
-                        Console.WriteLine("Single Block Publishing Test - Alloy Meet Heading - FAIL (Generated html file has wrong content, probably not written or wrote old content)");
+                        //Console.WriteLine("Single Block Publishing Test - Alloy Meet Heading - FAIL (Generated html file has wrong content, probably not written or wrote old content)");
+                        result.Success = false;
+                        result.Message = "Generated html file has wrong content, probably not written or wrote old content";
                     }
                 }
                 else
                 {
                     // TEST FAILED
-                    Console.WriteLine("Single Block Publishing Test - Alloy Plan Heading - FAIL (No generated html file found after publish, file: " + alloyMeetFile + ")");
+                    //Console.WriteLine("Single Block Publishing Test - Alloy Plan Heading - FAIL (No generated html file found after publish, file: " + alloyMeetFile + ")");
+                    result.Success = false;
+                    result.Message = "No generated html file found after publish, file: " + alloyMeetFile;
                 }
             }
             else
             {
-                Console.WriteLine("Single Block Publishing Test - Alloy Plan Heading - FAIL (" + errorMessage + ")");
+                //Console.WriteLine("Single Block Publishing Test - Alloy Plan Heading - FAIL (" + errorMessage + ")");
+                result.Success = false;
+                result.Message = errorMessage;
             }
 
             Thread.Sleep(5 * 1000);
@@ -83,11 +120,14 @@ namespace StaticWebEpiServerPlugin.Test
             ChangeAlloyMeetBlockHeading(driver, "Sharing worldwide");
 
             Thread.Sleep(5 * 1000);
+
+            return result;
         }
 
 
-        private static void SinglePagePublishingTest(EdgeDriver driver)
+        private static TestResult SinglePagePublishingTest(EdgeDriver driver)
         {
+            var result = new TestResult { Name = "Single Page Publishing Test", Success = true };
             string newTitle = "TEST-" + Guid.NewGuid();
             var errorMessage = ChangeAlloyPlanPageTitle(driver, newTitle, "Alloy Plan");
             if (string.IsNullOrEmpty(errorMessage))
@@ -100,23 +140,34 @@ namespace StaticWebEpiServerPlugin.Test
                     if (alloyPlanMarkup.IndexOf(newTitle) > 0)
                     {
                         // TEST SUCCESS
-                        Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - Success");
+                        //Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - Success");
+                        result.Success = true;
+                        //return result;
                     }
                     else
                     {
                         // TEST FAILED
-                        Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - FAIL (Generated html file has wrong content, probably not written or wrote old content)");
+                        //Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - FAIL (Generated html file has wrong content, probably not written or wrote old content)");
+                        result.Success = false;
+                        result.Message = "Generated html file has wrong content, probably not written or wrote old content";
+                        //return result;
                     }
                 }
                 else
                 {
                     // TEST FAILED
-                    Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - FAIL (No generated html file found after publish, file: " + alloyPlanFile + ")");
+                    //Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - FAIL (No generated html file found after publish, file: " + alloyPlanFile + ")");
+                    result.Success = false;
+                    result.Message = "No generated html file found after publish, file: " + alloyPlanFile;
+                    //return result;
                 }
             }
             else
             {
-                Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - FAIL (" + errorMessage + ")");
+                //Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - FAIL (" + errorMessage + ")");
+                result.Success = false;
+                result.Message = errorMessage;
+                //return result;
             }
 
             Thread.Sleep(5 * 1000);
@@ -125,6 +176,7 @@ namespace StaticWebEpiServerPlugin.Test
             ChangeAlloyPlanPageTitle(driver, "Alloy Plan");
 
             Thread.Sleep(5 * 1000);
+            return result;
         }
 
         private static void BackupOutputFolderAndCleanIt()
@@ -316,10 +368,45 @@ namespace StaticWebEpiServerPlugin.Test
             }
         }
 
+        private static string GetActionUrlWithText(EdgeDriver driver, string actionText)
+        {
+            int index = 0;
+            while (index < 50)
+            {
+                var actions = new Actions(driver);
+                actions.SendKeys(Keys.Tab).Build().Perform();
+                var activeElement = driver.SwitchTo().ActiveElement();
+
+                var attr = activeElement.GetAttribute("title");
+                var value = activeElement.GetAttribute("href");
+                if (string.IsNullOrEmpty(attr))
+                {
+                    attr = driver.ExecuteScript("return document.activeElement.innerText") as string;
+                    value = driver.ExecuteScript("return document.activeElement.getAttribute('href')") as string;
+                }
+                if (string.IsNullOrEmpty(attr))
+                {
+                    // Return iframe selected content
+                    attr = driver.ExecuteScript("if ('contentDocument' in document.activeElement) { return document.activeElement.contentDocument.activeElement.innerText; }else{return null;}") as string;
+                    value = driver.ExecuteScript("if ('contentDocument' in document.activeElement) { return document.activeElement.contentDocument.activeElement.getAttribute('href'); }else{return null;}") as string;
+                }
+
+                if (!string.IsNullOrEmpty(attr) && attr.Contains(actionText))
+                {
+                    return value;
+                }
+
+                Thread.Sleep(100);
+                index++;
+            }
+
+            return null;
+        }
+
         private static IWebElement GetActionElementWithText(EdgeDriver driver, string actionText)
         {
             int index = 0;
-            while (index < 20)
+            while (index < 50)
             {
                 var actions = new Actions(driver);
                 actions.SendKeys(Keys.Tab).Build().Perform();
@@ -329,6 +416,11 @@ namespace StaticWebEpiServerPlugin.Test
                 if (string.IsNullOrEmpty(attr))
                 {
                     attr = driver.ExecuteScript("return document.activeElement.innerText") as string;
+                }
+                if (string.IsNullOrEmpty(attr))
+                {
+                    // Return iframe selected content
+                    attr = driver.ExecuteScript("if ('contentDocument' in document.activeElement) { return document.activeElement.contentDocument.activeElement.innerText; }else{return null;}") as string;
                 }
 
                 if (!string.IsNullOrEmpty(attr) && attr.Contains(actionText))
@@ -370,6 +462,102 @@ namespace StaticWebEpiServerPlugin.Test
             return null;
         }
 
+        private static TestResult StartGenerateStaticWebScheduledJob(EdgeDriver driver)
+        {
+            var result = new TestResult { Name = "Scheduled Job Test", Success = true };
+
+            driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/Default.aspx");
+
+            var generateStaticWebScheduledJobUrl = GetActionUrlWithText(driver, "Generate StaticWeb");
+            if (generateStaticWebScheduledJobUrl != null)
+            {
+                driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
+                Thread.Sleep(5 * 1000);
+
+                // When was the last run?
+                var historyActionElement = GetActionElementWithText(driver, "History");
+                historyActionElement.SendKeys(Keys.Enter);
+                // Get last run date
+                Thread.Sleep(2 * 1000);
+                var previousRunDate = driver.ExecuteScript("return document.querySelector('td').innerText") as string;
+
+                driver.Navigate().Refresh();
+                driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
+                Thread.Sleep(5 * 1000);
+
+                var actionElement = GetActionElementWithText(driver, "Start Manually");
+                actionElement.SendKeys(Keys.Space);
+
+                // TODO: Wait until job is done (shows "The job has completed.")
+                Thread.Sleep(60 * 1000);
+
+                driver.Navigate().Refresh();
+                driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
+
+                // When was the last run?
+                historyActionElement = GetActionElementWithText(driver, "History");
+                historyActionElement.SendKeys(Keys.Enter);
+
+                // Get last run date and result message
+                Thread.Sleep(2 * 1000);
+                var lastRunDate = driver.ExecuteScript("return document.querySelector('td').innerText") as string;
+                var lastRunMessage = driver.ExecuteScript("return document.querySelector('td:nth-of-type(5)').innerText") as string;
+
+                // Compare run dates
+                if (string.IsNullOrEmpty(lastRunDate))
+                {
+                    //Console.WriteLine("Scheduled Job Test - FAIL (Unable to get date for when job as last runned, after it was started)");
+                    result.Success = false;
+                    result.Message = "Unable to get date for when job as last runned, after it was started";
+                    return result;
+                }
+                else if (previousRunDate == lastRunDate)
+                {
+                    // TEST FAILED
+                    //Console.WriteLine("Scheduled Job Test - FAIL (Previous run date is the same as last run date, is job still running or did it not complete correctly)");
+                    result.Success = false;
+                    result.Message = "Previous run date is the same as last run date, is job still running or did it not complete correctly";
+                    return result;
+                }
+                else if (string.IsNullOrEmpty(lastRunMessage)) // Validate last run result message
+                {
+                    //Console.WriteLine("Scheduled Job Test - FAIL (Unable to get scheduled job result message)");
+                    result.Success = false;
+                    result.Message = "Unable to get scheduled job result message";
+                    return result;
+                }
+                if (result.Success)
+                {
+                    lastRunMessage = lastRunMessage.Trim(new[] { '\r', '\n', ' ' });
+
+                    if (lastRunMessage.Equals("ExampleSite1 - 29 pages generated."))
+                    {
+                        //Console.WriteLine("Scheduled Job Test - SUCCESS");
+                        result.Success = true;
+                        result.Message = "";
+                        return result;
+                    }
+                    else
+                    {
+                        //Console.WriteLine("Scheduled Job Test - FAIL (Unexpected scheduled job result message: '" + lastRunMessage + "')");
+                        result.Success = false;
+                        result.Message = "Unexpected scheduled job result message: '" + lastRunMessage + "'";
+                        return result;
+                    }
+                }
+            }
+            else
+            {
+                //Console.WriteLine("Scheduled Job Test - FAIL (Unable to find scheduled job)");
+                result.Success = false;
+                result.Message = "Unable to find scheduled job";
+                return result;
+            }
+
+            result.Success = false;
+            result.Message = "Unexpected error";
+            return result;
+        }
 
         private static void EnsureAllPropertyViewIsUsed(EdgeDriver driver)
         {
@@ -380,7 +568,8 @@ namespace StaticWebEpiServerPlugin.Test
                 actionElement.SendKeys(Keys.Space);
                 Thread.Sleep(2 * 1000);
             }
-            else {
+            else
+            {
                 driver.Navigate().Refresh();
                 Thread.Sleep(2 * 1000);
             }
