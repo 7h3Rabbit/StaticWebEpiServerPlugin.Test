@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace StaticWebEpiServerPlugin.Test
@@ -42,10 +43,10 @@ namespace StaticWebEpiServerPlugin.Test
 
                 Console.WriteLine("*****************************");
                 Console.ReadKey();
-
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Exception: " + ex.Message);
             }
             driver.Close();
             driver.Quit();
@@ -55,6 +56,7 @@ namespace StaticWebEpiServerPlugin.Test
         {
             if (result.Success)
             {
+                Console.ForegroundColor = ConsoleColor.Green;
                 Console.Write("[Success]\t");
             }
             else
@@ -84,12 +86,17 @@ namespace StaticWebEpiServerPlugin.Test
                 var alloyMeetFile = outputFolder + @"en\alloy-meet\index.html";
                 if (File.Exists(alloyMeetFile))
                 {
-                    var alloyPlanMarkup = File.ReadAllText(alloyMeetFile, Encoding.UTF8);
-                    if (alloyPlanMarkup.IndexOf(newTitle) > 0)
+                    var alloyMeetMarkup = File.ReadAllText(alloyMeetFile, Encoding.UTF8);
+                    if (alloyMeetMarkup.IndexOf(newTitle) > 0)
                     {
-                        // TEST SUCCESS
-                        //Console.WriteLine("Single Block Publishing Test - Alloy Meet Heading - Success");
-                        result.Success = true;
+                        // Validate that they have same content
+                        driver.Navigate().GoToUrl("http://localhost:49822/en/alloy-meet/");
+                        Thread.Sleep(2 * 1000);
+
+                        var driverPageSource = driver.PageSource;
+                        var result2 = ValidateMarkup(alloyMeetMarkup, driverPageSource);
+                        result.Success = result2.Success;
+                        result.Message = result2.Message;
                     }
                     else
                     {
@@ -136,13 +143,18 @@ namespace StaticWebEpiServerPlugin.Test
                 var alloyPlanFile = outputFolder + @"en\alloy-plan\index.html";
                 if (File.Exists(alloyPlanFile))
                 {
+                    // Make sure we have our unique value
                     var alloyPlanMarkup = File.ReadAllText(alloyPlanFile, Encoding.UTF8);
                     if (alloyPlanMarkup.IndexOf(newTitle) > 0)
                     {
-                        // TEST SUCCESS
-                        //Console.WriteLine("Single Page Publishing Test - Alloy Plan Title - Success");
-                        result.Success = true;
-                        //return result;
+                        // Validate that they have same content
+                        driver.Navigate().GoToUrl("http://localhost:49822/en/alloy-plan/");
+                        Thread.Sleep(2 * 1000);
+
+                        var driverPageSource = driver.PageSource;
+                        var result2 = ValidateMarkup(alloyPlanMarkup, driverPageSource);
+                        result.Success = result2.Success;
+                        result.Message = result2.Message;
                     }
                     else
                     {
@@ -176,6 +188,81 @@ namespace StaticWebEpiServerPlugin.Test
             ChangeAlloyPlanPageTitle(driver, "Alloy Plan");
 
             Thread.Sleep(5 * 1000);
+            return result;
+        }
+
+        private static TestResult ValidateMarkup(string alloyPlanMarkup, string driverPageSource)
+        {
+            TestResult result = new TestResult();
+            result.Success = true;
+            var errorMessage = "Generated html file has wrong content, ";
+
+            // TODO: Validate written markup
+            // 1. Do we have staticweb commment on removed functionality? We should.
+            if (alloyPlanMarkup.IndexOf("<!-- StaticWeb - We are removing search as it is not working in the static version -->") == -1)
+            {
+                result.Message = errorMessage + "No StaticWeb comment about removed content found";
+                result.Success = false;
+            }
+            // 2. Do we have epi-quickNavigator? We should NOT.
+            if (alloyPlanMarkup.IndexOf("epi-quickNavigator") >= 0)
+            {
+                result.Message = errorMessage + "EpiServer QuickNavigator found";
+                result.Success = false;
+            }
+            // 3. Do we have the correct amount of script and css includes? We should.
+            if (Regex.Matches(alloyPlanMarkup, "<link").Count != 7)
+            {
+                result.Message = errorMessage + "Number of link elements was NOT 7";
+                result.Success = false;
+            }
+            else if (Regex.Matches(alloyPlanMarkup, "<script").Count != 3)
+            {
+                result.Message = errorMessage + "Number of script elements was NOT 3";
+                result.Success = false;
+            }
+            else if (Regex.Matches(alloyPlanMarkup, "<style").Count != 0)
+            {
+                result.Message = errorMessage + "Number of style elements was NOT 0";
+                result.Success = false;
+            }
+            // 4. Do we have the the same amount of script and css includes? We should NOT (quick navigator should be different).
+            // 5. Are resources rewritten? They should.
+            if (alloyPlanMarkup.IndexOf("/cache/v1/") == -1)
+            {
+                result.Message = errorMessage + "Resource urls are not rewritten to /cache/v1/";
+                result.Success = false;
+            }
+            else if (alloyPlanMarkup.IndexOf("/Static/") != -1)
+            {
+                result.Message = errorMessage + "There are still resources referenced to /Static/";
+                result.Success = false;
+            }
+            else if (alloyPlanMarkup.IndexOf("/contentassets/") != -1)
+            {
+                result.Message = errorMessage + "There are still resources referenced to /contentassets/";
+                result.Success = false;
+            }
+            else if (alloyPlanMarkup.IndexOf("/Util/") != -1)
+            {
+                result.Message = errorMessage + "There are still resources referenced to /Util/";
+                result.Success = false;
+            }
+            // 6. Are resources present/ do they exist? They should.
+            var resourceMatches = Regex.Matches(alloyPlanMarkup, @"\/cache\/[^""]+");
+            foreach (Match match in resourceMatches)
+            {
+                if (match.Success)
+                {
+                    var filePath = outputFolder + match.Value.Replace("/", "\\");
+                    if (!File.Exists(filePath))
+                    {
+                        result.Message = errorMessage + "Not all referenced resources was found: " + match.Value;
+                        result.Success = false;
+                    }
+                }
+            }
+
             return result;
         }
 
@@ -533,6 +620,9 @@ namespace StaticWebEpiServerPlugin.Test
                     if (lastRunMessage.Equals("ExampleSite1 - 29 pages generated."))
                     {
                         //Console.WriteLine("Scheduled Job Test - SUCCESS");
+
+                        // TODO: Validate that every URL exist AND that they have same content
+
                         result.Success = true;
                         result.Message = "";
                         return result;
@@ -579,6 +669,7 @@ namespace StaticWebEpiServerPlugin.Test
         {
             var options = new EdgeOptions();
             options.UseChromium = true;
+            options.UseInPrivateBrowsing = true;
 
             var driver = new EdgeDriver(@"C:\code\edgedriver_win64\", options);
             return driver;
