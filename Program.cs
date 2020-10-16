@@ -1,11 +1,9 @@
 ﻿using OpenQA.Selenium;
-using OpenQA.Selenium.DevTools.Network;
 using OpenQA.Selenium.Edge;
 using OpenQA.Selenium.Interactions;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -19,65 +17,147 @@ namespace StaticWebEpiServerPlugin.Test
         static string outputFolder = @"C:\inetpub\wwwroot\";
         static bool EnableBackup = false;
 
+        static List<Test> tests = null;
+        static EdgeDriver driver = null;
+
         static void Main(string[] args)
         {
-            EdgeDriver driver = CreateBrowser();
+            tests = new List<Test>
+            {
+                new Test
+                {
+                    Name = "Backup Output folder and Clean it",
+                    Func = BackupOutputFolderAndCleanIt
+                },
+                new Test
+                {
+                    Name = "Setup Selenium Client",
+                    Func = CreateBrowser
+                },
+                new Test
+                {
+                    Name = "Login to CMS",
+                    Func = LoginToCMS
+                },
+                new Test
+                {
+                    Name = "Scheduled Job Test",
+                    Func = StartGenerateStaticWebScheduledJob
+                },
+                new Test
+                {
+                    Name = "Single Block Publishing Test",
+                    Func = SingleBlockPublishingTest
+                },
+                new Test
+                {
+                    Name = "Single Page Publishing Test",
+                    Func = SinglePagePublishingTest
+                }
+            };
+
             try
             {
-                Console.Clear(); // Remove Selenium debug messages
-                Console.WriteLine("*****************************");
+                PrintProgress();
 
-                BackupOutputFolderAndCleanIt();
-
-                LoginToCMS(driver);
-
-                TestResult result = null;
-                result = StartGenerateStaticWebScheduledJob(driver);
-                PrintTestResult(result);
-
-                result = SinglePagePublishingTest(driver);
-                PrintTestResult(result);
-
-                result = SingleBlockPublishingTest(driver);
-                PrintTestResult(result);
-
-                Console.WriteLine("*****************************");
-                Console.ReadKey();
+                foreach (Test test in tests)
+                {
+                    test.Func.Invoke(driver, test);
+                    test.Progress = TestProgress.Ended;
+                    PrintProgress();
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Exception: " + ex.Message);
             }
+
+            while (true)
+            {
+                PrintProgress();
+                Console.WriteLine("Write \"Y/y\" and press <ENTER> to quit program");
+                var value = Console.ReadLine();
+                if (value == "Y" || value == "y")
+                {
+                    break;
+                }
+            }
+
+            Console.WriteLine("Closing program, please wait...");
+
             driver.Close();
             driver.Quit();
         }
 
-        private static void PrintTestResult(TestResult result)
+        private static void PrintProgress()
         {
-            if (result.Success)
+            Console.Clear();
+
+            if (tests == null || tests.Count == 0)
             {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.Write("[Success]\t");
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Write("[FAIL]\t\t");
+                return;
             }
 
-            Console.Write(result.Name);
-            if (!string.IsNullOrEmpty(result.Message))
+            Console.WriteLine("*************************************************");
+            Console.WriteLine("* StaticWebEpiServerPlugin - Regression Test(s) *");
+            Console.WriteLine("*************************************************");
+            foreach (Test item in tests)
+            {
+                PrintTest(item);
+            }
+            Console.WriteLine("*************************************************");
+        }
+
+        private static void PrintTest(Test test)
+        {
+            Console.BackgroundColor = ConsoleColor.Black;
+            switch (test.Progress)
+            {
+                case TestProgress.Waiting:
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.Write("[Waiting]\t");
+                    break;
+                case TestProgress.Running:
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write("[Running]\t");
+                    break;
+                case TestProgress.Cleaning:
+                    Console.Write("[Cleaning]\t");
+                    break;
+                case TestProgress.Ended:
+                    if (test.Success)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.Write("[Success]\t");
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Write("[FAIL]\t\t");
+                    }
+                    break;
+                default:
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write("[Unknown]\t");
+                    break;
+            }
+
+            Console.Write(test.Name);
+            if (!string.IsNullOrEmpty(test.Message))
             {
                 Console.Write(" - ");
-                Console.Write(result.Message);
+                Console.Write(test.Message);
             }
             Console.WriteLine();
             Console.ResetColor();
         }
 
-        private static TestResult SingleBlockPublishingTest(EdgeDriver driver)
+        private static void SingleBlockPublishingTest(EdgeDriver driver, Test result)
         {
-            var result = new TestResult { Name = "Single Block Publishing Test", Success = true };
+            result.Progress = TestProgress.Running;
+            PrintProgress();
+            result.Success = true;
+            //var result = new Test { Name = "Single Block Publishing Test", Success = true };
             string newTitle = "TEST-" + Guid.NewGuid();
             var errorMessage = ChangeAlloyMeetBlockHeading(driver, newTitle, "Sharing worldwide");
             if (string.IsNullOrEmpty(errorMessage))
@@ -123,18 +203,22 @@ namespace StaticWebEpiServerPlugin.Test
 
             Thread.Sleep(5 * 1000);
 
+            result.Progress = TestProgress.Cleaning;
+            PrintProgress();
+
             // Reset Alloy Plan page (So we can do the same test later)
             ChangeAlloyMeetBlockHeading(driver, "Sharing worldwide");
 
             Thread.Sleep(5 * 1000);
-
-            return result;
         }
 
 
-        private static TestResult SinglePagePublishingTest(EdgeDriver driver)
+        private static void SinglePagePublishingTest(EdgeDriver driver, Test result)
         {
-            var result = new TestResult { Name = "Single Page Publishing Test", Success = true };
+            result.Progress = TestProgress.Running;
+            PrintProgress();
+            result.Success = true;
+            //var result = new Test { Name = "Single Page Publishing Test", Success = true };
             string newTitle = "TEST-" + Guid.NewGuid();
             var errorMessage = ChangeAlloyPlanPageTitle(driver, newTitle, "Alloy Plan");
             if (string.IsNullOrEmpty(errorMessage))
@@ -184,16 +268,18 @@ namespace StaticWebEpiServerPlugin.Test
 
             Thread.Sleep(5 * 1000);
 
+            result.Progress = TestProgress.Cleaning;
+            PrintProgress();
+
             // Reset Alloy Plan page (So we can do the same test later)
             ChangeAlloyPlanPageTitle(driver, "Alloy Plan");
 
             Thread.Sleep(5 * 1000);
-            return result;
         }
 
-        private static TestResult ValidateMarkup(string alloyPlanMarkup, string driverPageSource)
+        private static Test ValidateMarkup(string alloyPlanMarkup, string driverPageSource)
         {
-            TestResult result = new TestResult();
+            Test result = new Test();
             result.Success = true;
             var errorMessage = "Generated html file has wrong content, ";
 
@@ -266,8 +352,11 @@ namespace StaticWebEpiServerPlugin.Test
             return result;
         }
 
-        private static void BackupOutputFolderAndCleanIt()
+        private static void BackupOutputFolderAndCleanIt(EdgeDriver driver, Test result)
         {
+            result.Progress = TestProgress.Running;
+            PrintProgress();
+
             DirectoryInfo directory = new DirectoryInfo(outputFolder);
             if (directory.Exists)
             {
@@ -285,6 +374,9 @@ namespace StaticWebEpiServerPlugin.Test
 
                     foreach (var subDirectory in subDirectories)
                     {
+                        result.Progress = TestProgress.Cleaning;
+                        PrintProgress();
+
                         if (EnableBackup)
                         {
                             subDirectory.MoveTo(backupDir.FullName + Path.DirectorySeparatorChar + subDirectory.Name);
@@ -297,6 +389,9 @@ namespace StaticWebEpiServerPlugin.Test
 
                     foreach (var subFile in subFiles)
                     {
+                        result.Progress = TestProgress.Cleaning;
+                        PrintProgress();
+
                         if (EnableBackup)
                         {
                             subFile.MoveTo(backupDir.FullName + Path.DirectorySeparatorChar + subFile.Name);
@@ -308,10 +403,14 @@ namespace StaticWebEpiServerPlugin.Test
                     }
                 }
             }
+            result.Success = true;
         }
 
-        private static void LoginToCMS(EdgeDriver driver)
+        private static void LoginToCMS(EdgeDriver driver, Test result)
         {
+            result.Progress = TestProgress.Running;
+            PrintProgress();
+
             driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/");
             Thread.Sleep(2 * 1000);
 
@@ -320,6 +419,8 @@ namespace StaticWebEpiServerPlugin.Test
             driver.FindElementById("LoginControl_Button1").Click();
 
             Thread.Sleep(2 * 1000);
+
+            result.Success = true;
         }
 
         private static string ChangeAlloyMeetBlockHeading(EdgeDriver driver, string newTitle, string verifyOldHeading = null)
@@ -549,9 +650,12 @@ namespace StaticWebEpiServerPlugin.Test
             return null;
         }
 
-        private static TestResult StartGenerateStaticWebScheduledJob(EdgeDriver driver)
+        private static void StartGenerateStaticWebScheduledJob(EdgeDriver driver, Test result)
         {
-            var result = new TestResult { Name = "Scheduled Job Test", Success = true };
+            result.Progress = TestProgress.Running;
+            result.Success = true;
+            PrintProgress();
+            //var result = new Test { Name = "Scheduled Job Test", Success = true };
 
             driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/Default.aspx");
 
@@ -596,7 +700,7 @@ namespace StaticWebEpiServerPlugin.Test
                     //Console.WriteLine("Scheduled Job Test - FAIL (Unable to get date for when job as last runned, after it was started)");
                     result.Success = false;
                     result.Message = "Unable to get date for when job as last runned, after it was started";
-                    return result;
+                    return;
                 }
                 else if (previousRunDate == lastRunDate)
                 {
@@ -604,14 +708,14 @@ namespace StaticWebEpiServerPlugin.Test
                     //Console.WriteLine("Scheduled Job Test - FAIL (Previous run date is the same as last run date, is job still running or did it not complete correctly)");
                     result.Success = false;
                     result.Message = "Previous run date is the same as last run date, is job still running or did it not complete correctly";
-                    return result;
+                    return;
                 }
                 else if (string.IsNullOrEmpty(lastRunMessage)) // Validate last run result message
                 {
                     //Console.WriteLine("Scheduled Job Test - FAIL (Unable to get scheduled job result message)");
                     result.Success = false;
                     result.Message = "Unable to get scheduled job result message";
-                    return result;
+                    return;
                 }
                 if (result.Success)
                 {
@@ -625,14 +729,14 @@ namespace StaticWebEpiServerPlugin.Test
 
                         result.Success = true;
                         result.Message = "";
-                        return result;
+                        return;
                     }
                     else
                     {
                         //Console.WriteLine("Scheduled Job Test - FAIL (Unexpected scheduled job result message: '" + lastRunMessage + "')");
                         result.Success = false;
                         result.Message = "Unexpected scheduled job result message: '" + lastRunMessage + "'";
-                        return result;
+                        return;
                     }
                 }
             }
@@ -641,12 +745,12 @@ namespace StaticWebEpiServerPlugin.Test
                 //Console.WriteLine("Scheduled Job Test - FAIL (Unable to find scheduled job)");
                 result.Success = false;
                 result.Message = "Unable to find scheduled job";
-                return result;
+                return;
             }
 
             result.Success = false;
             result.Message = "Unexpected error";
-            return result;
+            return;
         }
 
         private static void EnsureAllPropertyViewIsUsed(EdgeDriver driver)
@@ -665,14 +769,18 @@ namespace StaticWebEpiServerPlugin.Test
             }
         }
 
-        private static EdgeDriver CreateBrowser()
+        private static void CreateBrowser(EdgeDriver dummyArgument, Test result)
         {
+            result.Progress = TestProgress.Running;
+            PrintProgress();
+
             var options = new EdgeOptions();
             options.UseChromium = true;
             options.UseInPrivateBrowsing = true;
 
-            var driver = new EdgeDriver(@"C:\code\edgedriver_win64\", options);
-            return driver;
+            driver = new EdgeDriver(@"C:\code\edgedriver_win64\", options);
+            //return driver;
+            result.Success = true;
         }
     }
 }
