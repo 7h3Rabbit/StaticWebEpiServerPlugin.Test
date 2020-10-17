@@ -4,6 +4,7 @@ using OpenQA.Selenium.Interactions;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -58,6 +59,13 @@ namespace StaticWebEpiServerPlugin.Test
 
             try
             {
+                var screen = System.Windows.Forms.Screen.PrimaryScreen;
+                var positionRatio = 0.66;
+                var widthRatio = 0.33;
+                var topCorner = new System.Drawing.Point((int)(screen.WorkingArea.Width * positionRatio), screen.WorkingArea.Y);
+
+                SetWindowPosition(topCorner.X, topCorner.Y, (int)(screen.WorkingArea.Width * widthRatio), screen.WorkingArea.Height);
+
                 PrintProgress();
 
                 foreach (Test test in tests)
@@ -70,6 +78,17 @@ namespace StaticWebEpiServerPlugin.Test
             catch (Exception ex)
             {
                 Console.WriteLine("Exception: " + ex.Message);
+
+                if (tests != null && tests.Count != 0)
+                {
+                    foreach (Test item in tests)
+                    {
+                        if (item.Progress == TestProgress.Waiting)
+                        {
+                            item.Progress = TestProgress.Canceled;
+                        }
+                    }
+                }
             }
 
             while (true)
@@ -87,6 +106,34 @@ namespace StaticWebEpiServerPlugin.Test
 
             driver.Close();
             driver.Quit();
+        }
+
+        const int SWP_NOZORDER = 0x4;
+        const int SWP_NOACTIVATE = 0x10;
+
+        [DllImport("kernel32")]
+        static extern IntPtr GetConsoleWindow();
+
+
+        [DllImport("user32")]
+        static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+            int x, int y, int cx, int cy, int flags);
+
+        /// <summary>
+        /// Sets the console window location and size in pixels
+        /// </summary>
+        public static void SetWindowPosition(int x, int y, int width, int height)
+        {
+            SetWindowPos(Handle, IntPtr.Zero, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+
+        public static IntPtr Handle
+        {
+            get
+            {
+                //Initialize();
+                return GetConsoleWindow();
+            }
         }
 
         private static void PrintProgress()
@@ -135,6 +182,10 @@ namespace StaticWebEpiServerPlugin.Test
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.Write("[FAIL]\t\t");
                     }
+                    break;
+                case TestProgress.Canceled:
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write("[Canceled]\t");
                     break;
                 default:
                     Console.ForegroundColor = ConsoleColor.Yellow;
@@ -411,7 +462,19 @@ namespace StaticWebEpiServerPlugin.Test
             result.Progress = TestProgress.Running;
             PrintProgress();
 
-            driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/");
+            try
+            {
+
+                driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/");
+            }
+            catch (Exception)
+            {
+                result.Progress = TestProgress.Ended;
+                result.Message = "Unable to connect to: http://localhost:49822/EPiServer/CMS/";
+                result.Success = false;
+
+                throw;
+            }
             Thread.Sleep(2 * 1000);
 
             driver.FindElementById("LoginControl_UserName").SendKeys("Wayne");
@@ -487,8 +550,8 @@ namespace StaticWebEpiServerPlugin.Test
                     if (oldValue != verifyOldTitle)
                     {
                         return "Prerequirement not met for test, page name is not 'Alloy Plan'"; // Aborting TEST, wrong page OR wrong initial value. Name should be = 'Alloy Plan'
-                        //System.Diagnostics.Process.Start("http://localhost:49822/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
-                        //throw new Exception("Aborting TEST, wrong page OR wrong initial value. Name should be = 'Alloy Plan'");
+                                                                                                 //System.Diagnostics.Process.Start("http://localhost:49822/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
+                                                                                                 //throw new Exception("Aborting TEST, wrong page OR wrong initial value. Name should be = 'Alloy Plan'");
                     }
                 }
 
@@ -779,6 +842,14 @@ namespace StaticWebEpiServerPlugin.Test
             options.UseInPrivateBrowsing = true;
 
             driver = new EdgeDriver(@"C:\code\edgedriver_win64\", options);
+
+            var screen = System.Windows.Forms.Screen.PrimaryScreen;
+            var topCorner = new System.Drawing.Point(screen.WorkingArea.X, screen.WorkingArea.Y);
+
+            driver.Manage().Window.Position = topCorner;
+            var ratio = 0.66;
+            driver.Manage().Window.Size = new System.Drawing.Size((int)(screen.WorkingArea.Width * ratio), screen.WorkingArea.Height);
+
             //return driver;
             result.Success = true;
         }
