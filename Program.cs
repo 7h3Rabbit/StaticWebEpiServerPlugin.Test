@@ -334,6 +334,8 @@ namespace StaticWebEpiServerPlugin.Test
             result.Success = true;
             var errorMessage = "Generated html file has wrong content, ";
 
+            var usesRequiredCssDemo = alloyPlanMarkup.IndexOf("<!-- RequiredCssDemo -->") != -1;
+
             // TODO: Validate written markup
             // 1. Do we have staticweb commment on removed functionality? We should.
             if (alloyPlanMarkup.IndexOf("<!-- StaticWeb - We are removing search as it is not working in the static version -->") == -1)
@@ -348,20 +350,39 @@ namespace StaticWebEpiServerPlugin.Test
                 result.Success = false;
             }
             // 3. Do we have the correct amount of script and css includes? We should.
-            if (Regex.Matches(alloyPlanMarkup, "<link").Count != 7)
+            var nOfLinks = Regex.Matches(alloyPlanMarkup, "<link").Count;
+            var nOfStyles = Regex.Matches(alloyPlanMarkup, "<style").Count;
+            var nOfScripts = Regex.Matches(alloyPlanMarkup, "<script").Count;
+            if (nOfScripts != 3)
             {
-                result.Message = errorMessage + "Number of link elements was NOT 7";
+                result.Message = errorMessage + "Number of script elements was NOT 3 but " + nOfScripts;
                 result.Success = false;
             }
-            else if (Regex.Matches(alloyPlanMarkup, "<script").Count != 3)
+            else if (!usesRequiredCssDemo)
             {
-                result.Message = errorMessage + "Number of script elements was NOT 3";
-                result.Success = false;
+                if (nOfLinks != 7)
+                {
+                    result.Message = errorMessage + "Number of link elements was NOT 7 but " + nOfLinks;
+                    result.Success = false;
+                }
+                else if (nOfStyles != 0)
+                {
+                    result.Message = errorMessage + "Number of style elements was NOT 0 but " + nOfStyles;
+                    result.Success = false;
+                }
             }
-            else if (Regex.Matches(alloyPlanMarkup, "<style").Count != 0)
+            else
             {
-                result.Message = errorMessage + "Number of style elements was NOT 0";
-                result.Success = false;
+                if (nOfLinks != 2)
+                {
+                    result.Message = errorMessage + "Number of link elements was NOT 0 but " + nOfLinks;
+                    result.Success = false;
+                }
+                else if (nOfStyles != 5)
+                {
+                    result.Message = errorMessage + "Number of style elements was NOT 1 but " + nOfStyles;
+                    result.Success = false;
+                }
             }
             // 4. Do we have the the same amount of script and css includes? We should NOT (quick navigator should be different).
             // 5. Are resources rewritten? They should.
