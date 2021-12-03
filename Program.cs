@@ -13,7 +13,7 @@ namespace StaticWebEpiServerPlugin.Test
 {
     class Program
     {
-        static string epiServerBaseUrl = "http://localhost:49822/";
+        static string epiServerBaseUrl = "http://localhost:49823/";
         static string staticBaseUrl = "http://localhost/";
         static string outputFolder = @"C:\inetpub\wwwroot\";
         static bool EnableBackup = false;
@@ -221,7 +221,7 @@ namespace StaticWebEpiServerPlugin.Test
                     if (alloyMeetMarkup.IndexOf(newTitle) > 0)
                     {
                         // Validate that they have same content
-                        driver.Navigate().GoToUrl("http://localhost:49822/en/alloy-meet/");
+                        driver.Navigate().GoToUrl("http://localhost:49823/en/alloy-meet/");
                         Thread.Sleep(2 * 1000);
 
                         var driverPageSource = driver.PageSource;
@@ -283,7 +283,7 @@ namespace StaticWebEpiServerPlugin.Test
                     if (alloyPlanMarkup.IndexOf(newTitle) > 0)
                     {
                         // Validate that they have same content
-                        driver.Navigate().GoToUrl("http://localhost:49822/en/alloy-plan/");
+                        driver.Navigate().GoToUrl("http://localhost:49823/en/alloy-plan/");
                         Thread.Sleep(2 * 1000);
 
                         var driverPageSource = driver.PageSource;
@@ -486,21 +486,21 @@ namespace StaticWebEpiServerPlugin.Test
             try
             {
 
-                driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/");
+                driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/");
             }
             catch (Exception)
             {
                 result.Progress = TestProgress.Ended;
-                result.Message = "Unable to connect to: http://localhost:49822/EPiServer/CMS/";
+                result.Message = "Unable to connect to: http://localhost:49823/EPiServer/CMS/";
                 result.Success = false;
 
                 throw;
             }
             Thread.Sleep(2 * 1000);
 
-            driver.FindElementById("LoginControl_UserName").SendKeys("Wayne");
-            driver.FindElementById("LoginControl_Password").SendKeys("3Aac6f9a-53fb-447c-be24-fe4bd3c42eb4");
-            driver.FindElementById("LoginControl_Button1").Click();
+            driver.FindElement(By.Id("LoginControl_UserName")).SendKeys("Wayne");
+            driver.FindElement(By.Id("LoginControl_Password")).SendKeys("3Aac6f9a-53fb-447c-be24-fe4bd3c42eb4");
+            driver.FindElement(By.CssSelector("[type=submit]")).Click();
 
             Thread.Sleep(2 * 1000);
 
@@ -509,7 +509,7 @@ namespace StaticWebEpiServerPlugin.Test
 
         private static string ChangeAlloyMeetBlockHeading(EdgeDriver driver, string newTitle, string verifyOldHeading = null)
         {
-            driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/#context=epi.cms.contentdata:///64&viewsetting=viewlanguage:///en");
+            driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///64&viewsetting=viewlanguage:///en");
             Thread.Sleep(2 * 1000);
 
             EnsureAllPropertyViewIsUsed(driver);
@@ -544,7 +544,7 @@ namespace StaticWebEpiServerPlugin.Test
                 Thread.Sleep(1 * 1000);
 
                 driver.Navigate().Refresh();
-                //driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/#context=epi.cms.contentdata:///64&viewsetting=viewlanguage:///en");
+                //driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///64&viewsetting=viewlanguage:///en");
 
                 Thread.Sleep(5 * 1000);
                 return null;
@@ -555,7 +555,7 @@ namespace StaticWebEpiServerPlugin.Test
 
         private static string ChangeAlloyPlanPageTitle(EdgeDriver driver, string newTitle, string verifyOldTitle = null)
         {
-            driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
+            driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
             Thread.Sleep(2 * 1000);
 
             EnsureAllPropertyViewIsUsed(driver);
@@ -571,7 +571,7 @@ namespace StaticWebEpiServerPlugin.Test
                     if (oldValue != verifyOldTitle)
                     {
                         return "Prerequirement not met for test, page name is not 'Alloy Plan'"; // Aborting TEST, wrong page OR wrong initial value. Name should be = 'Alloy Plan'
-                                                                                                 //System.Diagnostics.Process.Start("http://localhost:49822/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
+                                                                                                 //System.Diagnostics.Process.Start("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
                                                                                                  //throw new Exception("Aborting TEST, wrong page OR wrong initial value. Name should be = 'Alloy Plan'");
                     }
                 }
@@ -592,7 +592,7 @@ namespace StaticWebEpiServerPlugin.Test
                 Thread.Sleep(1 * 1000);
 
                 driver.Navigate().Refresh();
-                //driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
+                //driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
 
                 Thread.Sleep(5 * 1000);
                 return null;
@@ -741,12 +741,14 @@ namespace StaticWebEpiServerPlugin.Test
             PrintProgress();
             //var result = new Test { Name = "Scheduled Job Test", Success = true };
 
-            driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/Default.aspx");
+            driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/Admin/Default.aspx");
+
+            Thread.Sleep(2 * 1000);
 
             var generateStaticWebScheduledJobUrl = GetActionUrlWithText(driver, "Generate StaticWeb");
             if (generateStaticWebScheduledJobUrl != null)
             {
-                driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
+                driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
                 Thread.Sleep(5 * 1000);
 
                 // When was the last run?
@@ -757,7 +759,7 @@ namespace StaticWebEpiServerPlugin.Test
                 var previousRunDate = driver.ExecuteScript("return document.querySelector('td').innerText") as string;
 
                 driver.Navigate().Refresh();
-                driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
+                driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
                 Thread.Sleep(5 * 1000);
 
                 var actionElement = GetActionElementWithText(driver, "Start Manually");
@@ -767,7 +769,7 @@ namespace StaticWebEpiServerPlugin.Test
                 Thread.Sleep(60 * 1000);
 
                 driver.Navigate().Refresh();
-                driver.Navigate().GoToUrl("http://localhost:49822/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
+                driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/Admin/" + generateStaticWebScheduledJobUrl);
 
                 // When was the last run?
                 historyActionElement = GetActionElementWithText(driver, "History");
@@ -805,7 +807,7 @@ namespace StaticWebEpiServerPlugin.Test
                 {
                     lastRunMessage = lastRunMessage.Trim(new[] { '\r', '\n', ' ' });
 
-                    if (lastRunMessage.Equals("ExampleSite1 - 29 pages generated."))
+                    if (lastRunMessage.Equals("ExampleSite1 - 27 pages generated."))
                     {
                         //Console.WriteLine("Scheduled Job Test - SUCCESS");
 
@@ -859,9 +861,8 @@ namespace StaticWebEpiServerPlugin.Test
             PrintProgress();
 
             var options = new EdgeOptions();
-            options.UseChromium = true;
-            options.UseInPrivateBrowsing = true;
 
+            // Driver can be downloaded here: https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/
             driver = new EdgeDriver(@"C:\code\edgedriver_win64\", options);
 
             var screen = System.Windows.Forms.Screen.PrimaryScreen;
