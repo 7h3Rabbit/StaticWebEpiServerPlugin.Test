@@ -284,7 +284,7 @@ namespace StaticWebEpiServerPlugin.Test
                     {
                         // Validate that they have same content
                         driver.Navigate().GoToUrl("http://localhost:49823/en/alloy-plan/");
-                        Thread.Sleep(2 * 1000);
+                        Thread.Sleep(5 * 1000);
 
                         var driverPageSource = driver.PageSource;
                         var result2 = ValidateMarkup(alloyPlanMarkup, driverPageSource);
@@ -407,7 +407,7 @@ namespace StaticWebEpiServerPlugin.Test
                 result.Success = false;
             }
             // 6. Are resources present/ do they exist? They should.
-            var resourceMatches = Regex.Matches(alloyPlanMarkup, @"\/cache\/[^""]+");
+            var resourceMatches = Regex.Matches(alloyPlanMarkup, @"\/cache\/[^""#]+");
             foreach (Match match in resourceMatches)
             {
                 if (match.Success)
