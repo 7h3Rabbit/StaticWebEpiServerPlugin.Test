@@ -486,12 +486,12 @@ namespace StaticWebEpiServerPlugin.Test
             try
             {
 
-                driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/");
+                driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/?language=en");
             }
             catch (Exception)
             {
                 result.Progress = TestProgress.Ended;
-                result.Message = "Unable to connect to: http://localhost:49823/EPiServer/CMS/";
+                result.Message = "Unable to connect to: http://localhost:49823/EPiServer/CMS/?language=en";
                 result.Success = false;
 
                 throw;
@@ -509,7 +509,7 @@ namespace StaticWebEpiServerPlugin.Test
 
         private static string ChangeAlloyMeetBlockHeading(EdgeDriver driver, string newTitle, string verifyOldHeading = null)
         {
-            driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///64&viewsetting=viewlanguage:///en");
+            driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/?language=en#context=epi.cms.contentdata:///64&viewsetting=viewlanguage:///en");
             Thread.Sleep(2 * 1000);
 
             EnsureAllPropertyViewIsUsed(driver);
@@ -544,7 +544,7 @@ namespace StaticWebEpiServerPlugin.Test
                 Thread.Sleep(1 * 1000);
 
                 driver.Navigate().Refresh();
-                //driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///64&viewsetting=viewlanguage:///en");
+                //driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/?language=en#context=epi.cms.contentdata:///64&viewsetting=viewlanguage:///en");
 
                 Thread.Sleep(5 * 1000);
                 return null;
@@ -555,7 +555,7 @@ namespace StaticWebEpiServerPlugin.Test
 
         private static string ChangeAlloyPlanPageTitle(EdgeDriver driver, string newTitle, string verifyOldTitle = null)
         {
-            driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
+            driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/?language=en#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
             Thread.Sleep(2 * 1000);
 
             EnsureAllPropertyViewIsUsed(driver);
@@ -592,7 +592,7 @@ namespace StaticWebEpiServerPlugin.Test
                 Thread.Sleep(1 * 1000);
 
                 driver.Navigate().Refresh();
-                //driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
+                //driver.Navigate().GoToUrl("http://localhost:49823/EPiServer/CMS/?language=en#context=epi.cms.contentdata:///6&viewsetting=viewlanguage:///en");
 
                 Thread.Sleep(5 * 1000);
                 return null;
